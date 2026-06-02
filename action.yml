@@ -1,23 +1,36 @@
-name: The name of your action here
-description: Provide a description here
-author: Your name or organization here
+name: CODEOWNERS Check
+description: >-
+  Enforces CODEOWNERS approval on pull requests. Fails when required owners
+  have not approved all changed files.
+author: aebrahim
 
-# Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
-  icon: heart
-  color: red
+  icon: shield
+  color: blue
 
-# Define your inputs here.
 inputs:
-  milliseconds:
-    description: Your input description here
-    required: true
-    default: '1000'
-
-# Define your outputs here.
-outputs:
-  time:
-    description: Your output description here
+  github-token:
+    description: >-
+      GitHub token used to read PR details, reviews, and file contents.
+      Defaults to the token provided by the Actions runner.
+    required: false
+    default: ${{ github.token }}
+  codeowners-path:
+    description: Path to the CODEOWNERS file in the repository.
+    required: false
+    default: .github/CODEOWNERS
+  ignore-filepaths:
+    description: >-
+      Comma- or newline-separated list of file paths or glob patterns where
+      CODEOWNERS rules should be ignored.
+    required: false
+    default: ''
+  ignore-authors:
+    description: >-
+      Comma- or newline-separated list of PR authors for which the CODEOWNERS
+      check should be skipped entirely.
+    required: false
+    default: ''
 
 runs:
   using: node24
