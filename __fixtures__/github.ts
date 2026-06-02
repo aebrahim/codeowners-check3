@@ -1,0 +1,49 @@
+import type * as gh from '@actions/github'
+import { jest } from '@jest/globals'
+
+type Octokit = ReturnType<typeof gh.getOctokit>
+
+export const getOctokit = jest.fn<typeof gh.getOctokit>()
+
+export const context: typeof gh.context = {
+  payload: {},
+  eventName: 'pull_request',
+  sha: 'abc123',
+  ref: 'refs/heads/main',
+  workflow: 'CI',
+  action: 'run',
+  actor: 'testuser',
+  job: 'test',
+  runNumber: 1,
+  runId: 1,
+  apiUrl: 'https://api.github.com',
+  serverUrl: 'https://github.com',
+  graphqlUrl: 'https://api.github.com/graphql',
+  issue: { owner: 'owner', repo: 'repo', number: 1 },
+  repo: { owner: 'owner', repo: 'repo' }
+} as typeof gh.context
+
+/** Helper to build a minimal mock Octokit for tests. */
+export function buildMockOctokit(overrides?: {
+  listReviews?: jest.Mock
+  listFiles?: jest.Mock
+  getContent?: jest.Mock
+}): Octokit {
+  return {
+    rest: {
+      pulls: {
+        listReviews:
+          overrides?.listReviews ??
+          jest.fn<() => Promise<unknown>>().mockResolvedValue({ data: [] }),
+        listFiles:
+          overrides?.listFiles ??
+          jest.fn<() => Promise<unknown>>().mockResolvedValue({ data: [] })
+      },
+      repos: {
+        getContent:
+          overrides?.getContent ??
+          jest.fn<() => Promise<unknown>>().mockResolvedValue({ data: {} })
+      }
+    }
+  } as unknown as Octokit
+}
