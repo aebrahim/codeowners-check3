@@ -1,9 +1,8 @@
 name: CODEOWNERS Check
 description: >-
-  Enforces CODEOWNERS approval on pull requests. Fails when required owners
-  have not approved all changed files.
+  Enforces CODEOWNERS approval on pull requests. Fails when required owners have
+  not approved all changed files.
 author: aebrahim
-
 branding:
   icon: shield
   color: blue
@@ -11,8 +10,8 @@ branding:
 inputs:
   github-token:
     description: >-
-      GitHub token used to read PR details, reviews, and file contents.
-      Defaults to the token provided by the Actions runner.
+      GitHub token used to read PR details, reviews, and file contents. Defaults
+      to the token provided by the Actions runner.
     required: false
     default: ${{ github.token }}
   codeowners-path:
