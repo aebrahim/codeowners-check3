@@ -6,6 +6,7 @@
  * so that the actual '@actions/core' module is not imported.
  */
 import { jest } from '@jest/globals'
+import { describe, it, expect, beforeEach } from '@jest/globals'
 import * as core from '../__fixtures__/core.js'
 import * as gh from '../__fixtures__/github.js'
 
@@ -52,6 +53,7 @@ describe('main.ts', () => {
         head: { sha: 'deadbeef' }
       }
     }
+    // @ts-expect-error - mocking in a test
     gh.context.repo = { owner: 'myorg', repo: 'myrepo' }
   })
 
@@ -150,9 +152,31 @@ describe('main.ts', () => {
 
     await run()
 
+    expect(core.setFailed).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to fetch CODEOWNERS file')
+    )
+  })
+
+  it('skips check when CODEOWNERS file is empty', async () => {
+    gh.getOctokit.mockReturnValue(
+      gh.buildMockOctokit({
+        listReviews: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: [{ user: { login: 'bob' }, state: 'APPROVED' }]
+        }),
+        listFiles: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: [{ filename: 'src/foo.ts' }]
+        }),
+        getContent: jest
+          .fn<() => Promise<unknown>>()
+          .mockResolvedValue({ data: { content: '', encoding: 'base64' } })
+      })
+    )
+
+    await run()
+
     expect(core.setFailed).not.toHaveBeenCalled()
     expect(core.info).toHaveBeenCalledWith(
-      expect.stringContaining('CODEOWNERS file not found')
+      expect.stringContaining('CODEOWNERS file is empty')
     )
   })
 

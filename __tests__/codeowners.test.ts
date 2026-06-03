@@ -1,6 +1,7 @@
 /**
  * Unit tests for src/codeowners.ts
  */
+import { describe, it, expect } from '@jest/globals'
 import { parseCodeowners, getOwnersForFile } from '../src/codeowners.js'
 
 describe('parseCodeowners', () => {

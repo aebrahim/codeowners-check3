@@ -13,6 +13,13 @@ function splitInput(value: string): string[] {
     .filter(Boolean)
 }
 
+function errorToString(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+  return String(error)
+}
+
 /**
  * Returns true when `filePath` matches any of the provided ignore patterns.
  */
@@ -127,9 +134,9 @@ export async function run(): Promise<void> {
         return
       }
       codeownersContent = Buffer.from(data.content, 'base64').toString('utf8')
-    } catch {
-      core.info(
-        `CODEOWNERS file not found at "${codeownersPath}" — skipping check.`
+    } catch (error: unknown) {
+      core.setFailed(
+        `Failed to fetch CODEOWNERS file at "${codeownersPath}" with error: ${errorToString(error)}`
       )
       return
     }
@@ -166,7 +173,7 @@ export async function run(): Promise<void> {
       } catch (error: unknown) {
         // Team not found or insufficient permissions — treat as not satisfied
         core.error(
-          `Could not fetch members for team "${cacheKey}" with error ${error instanceof Error ? error.message : String(error)}`
+          `Could not fetch members for team "${cacheKey}" with error ${errorToString(error)}`
         )
         teamMembersCache.set(cacheKey, null)
         return null
@@ -221,7 +228,7 @@ export async function run(): Promise<void> {
     } else {
       core.info('CODEOWNERS check passed.')
     }
-  } catch (error) {
-    if (error instanceof Error) core.setFailed(error.message)
+  } catch (error: unknown) {
+    core.setFailed(errorToString(error))
   }
 }
