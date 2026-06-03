@@ -56,7 +56,9 @@ export function buildMockOctokit(overrides?: {
       .fn<(fn: unknown, params: unknown) => Promise<unknown[]>>()
       .mockImplementation(
         async (fn: unknown, params: unknown): Promise<unknown[]> => {
-          const result = (await (fn as (p: unknown) => Promise<{ data: unknown[] }>)(params))
+          const result = await (
+            fn as (p: unknown) => Promise<{ data: unknown[] }>
+          )(params)
           return result.data
         }
       )

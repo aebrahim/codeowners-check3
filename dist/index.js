@@ -36028,7 +36028,7 @@ async function run() {
         const headSha = context.payload.pull_request.head.sha;
         info(`PR #${prNumber} — author: ${prAuthor}, head SHA: ${headSha}`);
         // 1. Read current PR approvals — exit success if none exist
-        const reviews = await octokit.rest.pulls.listReviews({
+        const reviews = await octokit.paginate(octokit.rest.pulls.listReviews, {
             owner,
             repo,
             pull_number: prNumber,
@@ -36036,7 +36036,7 @@ async function run() {
         });
         // Build set of users who have an APPROVED review (most-recent per user)
         const latestReviewByUser = new Map();
-        for (const review of reviews.data) {
+        for (const review of reviews) {
             if (review.user?.login) {
                 latestReviewByUser.set(review.user.login, review.state);
             }
@@ -36055,13 +36055,12 @@ async function run() {
             return;
         }
         // 3. Read changed files; exit success if all are in ignore-filepaths
-        const filesResponse = await octokit.rest.pulls.listFiles({
+        const changedFiles = (await octokit.paginate(octokit.rest.pulls.listFiles, {
             owner,
             repo,
             pull_number: prNumber,
             per_page: 100
-        });
-        const changedFiles = filesResponse.data.map((f) => f.filename);
+        })).map((f) => f.filename);
         info(`Changed files: ${changedFiles.join(', ')}`);
         const relevantFiles = [];
         for (const file of changedFiles) {
@@ -36106,12 +36105,12 @@ async function run() {
                 return teamMembersCache.get(cacheKey);
             }
             try {
-                const membersResp = await octokit.rest.teams.listMembersInOrg({
+                const members = await octokit.paginate(octokit.rest.teams.listMembersInOrg, {
                     org: teamOrg,
                     team_slug: teamSlug,
                     per_page: 100
                 });
-                const logins = new Set(membersResp.data.map((m) => m.login));
+                const logins = new Set(members.map((m) => m.login));
                 teamMembersCache.set(cacheKey, logins);
                 return logins;
             }

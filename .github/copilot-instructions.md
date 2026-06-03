@@ -46,6 +46,14 @@ Install dependencies by running:
 npm install
 ```
 
+## Formatting
+
+Always run the formatting checker.
+
+```bash
+npm run format:check
+```
+
 ## Testing
 
 Ensure all unit tests pass by running:
