@@ -149,11 +149,38 @@ export async function run(): Promise<void> {
       }
 
       // At least one required owner must be a participant
-      const satisfied = owners.some((owner) => {
-        // owners can be @user or @org/team — we check user logins directly
-        const login = owner.startsWith('@') ? owner.slice(1) : owner
-        return participants.has(login)
-      })
+      let satisfied = false
+      for (const ownerEntry of owners) {
+        const stripped = ownerEntry.startsWith('@') ? ownerEntry.slice(1) : ownerEntry
+        if (stripped.includes('/')) {
+          // Team entry: org/team-slug — check if any participant is a team member
+          const slashIndex = stripped.indexOf('/')
+          const teamOrg = stripped.slice(0, slashIndex)
+          const teamSlug = stripped.slice(slashIndex + 1)
+          try {
+            const membersResp = await octokit.rest.teams.listMembersInOrg({
+              org: teamOrg,
+              team_slug: teamSlug,
+              per_page: 100
+            })
+            const teamLogins = new Set(
+              membersResp.data.map((m: { login: string }) => m.login)
+            )
+            if ([...participants].some((p) => teamLogins.has(p))) {
+              satisfied = true
+              break
+            }
+          } catch {
+            // Team not found or insufficient permissions — treat as not satisfied
+            core.debug(`Could not fetch members for team "${stripped}"`)
+          }
+        } else {
+          if (participants.has(stripped)) {
+            satisfied = true
+            break
+          }
+        }
+      }
 
       if (!satisfied) {
         failures.push({ file, requiredOwners: owners })

@@ -237,4 +237,89 @@ describe('main.ts', () => {
 
     expect(core.setFailed).toHaveBeenCalledWith('Bad credentials')
   })
+
+  it('passes when a team member approves and the owner is a team', async () => {
+    gh.getOctokit.mockReturnValue(
+      gh.buildMockOctokit({
+        listReviews: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: [{ user: { login: 'team-member' }, state: 'APPROVED' }]
+        }),
+        listFiles: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: [{ filename: 'src/app.ts' }]
+        }),
+        getContent: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: {
+            content: b64('*.ts @myorg/frontend\n'),
+            encoding: 'base64'
+          }
+        }),
+        listMembersInOrg: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: [{ login: 'team-member' }, { login: 'other-member' }]
+        })
+      })
+    )
+
+    await run()
+
+    expect(core.setFailed).not.toHaveBeenCalled()
+    expect(core.info).toHaveBeenCalledWith(
+      expect.stringContaining('CODEOWNERS check passed')
+    )
+  })
+
+  it('fails when the approver is not a member of the required team', async () => {
+    gh.getOctokit.mockReturnValue(
+      gh.buildMockOctokit({
+        listReviews: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: [{ user: { login: 'outsider' }, state: 'APPROVED' }]
+        }),
+        listFiles: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: [{ filename: 'src/app.ts' }]
+        }),
+        getContent: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: {
+            content: b64('*.ts @myorg/frontend\n'),
+            encoding: 'base64'
+          }
+        }),
+        listMembersInOrg: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: [{ login: 'team-member' }]
+        })
+      })
+    )
+
+    await run()
+
+    expect(core.setFailed).toHaveBeenCalledWith(
+      expect.stringContaining('src/app.ts')
+    )
+  })
+
+  it('fails when the required team does not exist or cannot be fetched', async () => {
+    gh.getOctokit.mockReturnValue(
+      gh.buildMockOctokit({
+        listReviews: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: [{ user: { login: 'approver' }, state: 'APPROVED' }]
+        }),
+        listFiles: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: [{ filename: 'src/app.ts' }]
+        }),
+        getContent: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: {
+            content: b64('*.ts @myorg/nonexistent-team\n'),
+            encoding: 'base64'
+          }
+        }),
+        listMembersInOrg: jest
+          .fn<() => Promise<unknown>>()
+          .mockRejectedValue(new Error('Not Found'))
+      })
+    )
+
+    await run()
+
+    expect(core.setFailed).toHaveBeenCalledWith(
+      expect.stringContaining('src/app.ts')
+    )
+  })
 })
