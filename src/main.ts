@@ -57,7 +57,7 @@ export async function run(): Promise<void> {
     core.info(`PR #${prNumber} — author: ${prAuthor}, head SHA: ${headSha}`)
 
     // 1. Read current PR approvals — exit success if none exist
-    const reviews = await octokit.rest.pulls.listReviews({
+    const reviews = await octokit.paginate(octokit.rest.pulls.listReviews, {
       owner,
       repo,
       pull_number: prNumber,
@@ -66,7 +66,7 @@ export async function run(): Promise<void> {
 
     // Build set of users who have an APPROVED review (most-recent per user)
     const latestReviewByUser = new Map<string, string>()
-    for (const review of reviews.data) {
+    for (const review of reviews) {
       if (review.user?.login) {
         latestReviewByUser.set(review.user.login, review.state)
       }
@@ -91,13 +91,14 @@ export async function run(): Promise<void> {
     }
 
     // 3. Read changed files; exit success if all are in ignore-filepaths
-    const filesResponse = await octokit.rest.pulls.listFiles({
-      owner,
-      repo,
-      pull_number: prNumber,
-      per_page: 100
-    })
-    const changedFiles = filesResponse.data.map((f) => f.filename)
+    const changedFiles = (
+      await octokit.paginate(octokit.rest.pulls.listFiles, {
+        owner,
+        repo,
+        pull_number: prNumber,
+        per_page: 100
+      })
+    ).map((f) => f.filename)
     core.info(`Changed files: ${changedFiles.join(', ')}`)
 
     const relevantFiles: string[] = []
@@ -152,14 +153,15 @@ export async function run(): Promise<void> {
         return teamMembersCache.get(cacheKey)!
       }
       try {
-        const membersResp = await octokit.rest.teams.listMembersInOrg({
-          org: teamOrg,
-          team_slug: teamSlug,
-          per_page: 100
-        })
-        const logins = new Set(
-          membersResp.data.map((m: { login: string }) => m.login)
+        const members = await octokit.paginate(
+          octokit.rest.teams.listMembersInOrg,
+          {
+            org: teamOrg,
+            team_slug: teamSlug,
+            per_page: 100
+          }
         )
+        const logins = new Set(members.map((m: { login: string }) => m.login))
         teamMembersCache.set(cacheKey, logins)
         return logins
       } catch (error: unknown) {
