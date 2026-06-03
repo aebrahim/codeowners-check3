@@ -35995,6 +35995,12 @@ function splitInput(value) {
         .map((s) => s.trim())
         .filter(Boolean);
 }
+function errorToString(error) {
+    if (error instanceof Error) {
+        return error.message;
+    }
+    return String(error);
+}
 /**
  * Returns true when `filePath` matches any of the provided ignore patterns.
  */
@@ -36084,8 +36090,8 @@ async function run() {
             }
             codeownersContent = Buffer.from(data.content, 'base64').toString('utf8');
         }
-        catch {
-            info(`CODEOWNERS file not found at "${codeownersPath}" — skipping check.`);
+        catch (error) {
+            setFailed(`Failed to fetch CODEOWNERS file at "${codeownersPath}" with error: ${errorToString(error)}`);
             return;
         }
         const entries = parseCodeowners(codeownersContent);
@@ -36112,7 +36118,7 @@ async function run() {
             }
             catch (error$1) {
                 // Team not found or insufficient permissions — treat as not satisfied
-                error(`Could not fetch members for team "${cacheKey}" with error ${error$1 instanceof Error ? error$1.message : String(error$1)}`);
+                error(`Could not fetch members for team "${cacheKey}" with error ${errorToString(error$1)}`);
                 teamMembersCache.set(cacheKey, null);
                 return null;
             }
@@ -36161,8 +36167,7 @@ async function run() {
         }
     }
     catch (error) {
-        if (error instanceof Error)
-            setFailed(error.message);
+        setFailed(errorToString(error));
     }
 }
 
