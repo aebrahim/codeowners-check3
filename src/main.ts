@@ -57,18 +57,16 @@ export async function run(): Promise<void> {
     core.info(`PR #${prNumber} — author: ${prAuthor}, head SHA: ${headSha}`)
 
     // 1. Read current PR approvals — exit success if none exist
-    const reviews = await octokit.paginate(octokit.rest.pulls.listReviews, {
-      owner,
-      repo,
-      pull_number: prNumber,
-      per_page: 100
-    })
-
     // Build set of users who have an APPROVED review (most-recent per user)
     const latestReviewByUser = new Map<string, string>()
-    for (const review of reviews) {
-      if (review.user?.login) {
-        latestReviewByUser.set(review.user.login, review.state)
+    for await (const { data: reviews } of octokit.paginate.iterator(
+      octokit.rest.pulls.listReviews,
+      { owner, repo, pull_number: prNumber, per_page: 100 }
+    )) {
+      for (const review of reviews) {
+        if (review.user?.login) {
+          latestReviewByUser.set(review.user.login, review.state)
+        }
       }
     }
     const approvers = new Set<string>(
@@ -91,14 +89,15 @@ export async function run(): Promise<void> {
     }
 
     // 3. Read changed files; exit success if all are in ignore-filepaths
-    const changedFiles = (
-      await octokit.paginate(octokit.rest.pulls.listFiles, {
-        owner,
-        repo,
-        pull_number: prNumber,
-        per_page: 100
-      })
-    ).map((f) => f.filename)
+    const changedFiles: string[] = []
+    for await (const { data: files } of octokit.paginate.iterator(
+      octokit.rest.pulls.listFiles,
+      { owner, repo, pull_number: prNumber, per_page: 100 }
+    )) {
+      for (const f of files) {
+        changedFiles.push(f.filename)
+      }
+    }
     core.info(`Changed files: ${changedFiles.join(', ')}`)
 
     const relevantFiles: string[] = []
@@ -153,15 +152,15 @@ export async function run(): Promise<void> {
         return teamMembersCache.get(cacheKey)!
       }
       try {
-        const members = await octokit.paginate(
+        const logins = new Set<string>()
+        for await (const { data: members } of octokit.paginate.iterator(
           octokit.rest.teams.listMembersInOrg,
-          {
-            org: teamOrg,
-            team_slug: teamSlug,
-            per_page: 100
+          { org: teamOrg, team_slug: teamSlug, per_page: 100 }
+        )) {
+          for (const m of members) {
+            logins.add(m.login)
           }
-        )
-        const logins = new Set(members.map((m: { login: string }) => m.login))
+        }
         teamMembersCache.set(cacheKey, logins)
         return logins
       } catch (error: unknown) {
