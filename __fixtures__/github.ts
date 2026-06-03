@@ -50,9 +50,18 @@ export function buildMockOctokit(overrides?: {
         jest.fn<() => Promise<unknown>>().mockResolvedValue({ data: [] })
     }
   }
-  return {
-    rest: restMocks,
-    paginate: jest
+  async function* iteratorImpl(
+    fn: unknown,
+    params: unknown
+  ): AsyncGenerator<{ data: unknown[] }> {
+    const result = await (fn as (p: unknown) => Promise<{ data: unknown[] }>)(
+      params
+    )
+    yield result
+  }
+
+  const paginateFn = Object.assign(
+    jest
       .fn<(fn: unknown, params: unknown) => Promise<unknown[]>>()
       .mockImplementation(
         async (fn: unknown, params: unknown): Promise<unknown[]> => {
@@ -61,6 +70,18 @@ export function buildMockOctokit(overrides?: {
           )(params)
           return result.data
         }
-      )
+      ),
+    {
+      iterator: jest
+        .fn<
+          (fn: unknown, params: unknown) => AsyncGenerator<{ data: unknown[] }>
+        >()
+        .mockImplementation(iteratorImpl)
+    }
+  )
+
+  return {
+    rest: restMocks,
+    paginate: paginateFn
   } as unknown as Octokit
 }
