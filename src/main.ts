@@ -140,6 +140,37 @@ export async function run(): Promise<void> {
     // 5. Evaluate each relevant file against CODEOWNERS
     const participants = new Set<string>([prAuthor, ...approvers])
     const failures: { file: string; requiredOwners: string[] }[] = []
+    // Cache team membership lookups so the same team is only fetched once
+    const teamMembersCache = new Map<string, Set<string> | null>()
+
+    const getTeamMembers = async (
+      teamOrg: string,
+      teamSlug: string
+    ): Promise<Set<string> | null> => {
+      const cacheKey = `${teamOrg}/${teamSlug}`
+      if (teamMembersCache.has(cacheKey)) {
+        return teamMembersCache.get(cacheKey)!
+      }
+      try {
+        const membersResp = await octokit.rest.teams.listMembersInOrg({
+          org: teamOrg,
+          team_slug: teamSlug,
+          per_page: 100
+        })
+        const logins = new Set(
+          membersResp.data.map((m: { login: string }) => m.login)
+        )
+        teamMembersCache.set(cacheKey, logins)
+        return logins
+      } catch (error: unknown) {
+        // Team not found or insufficient permissions — treat as not satisfied
+        core.error(
+          `Could not fetch members for team "${cacheKey}" with error ${error instanceof Error ? error.message : String(error)}`
+        )
+        teamMembersCache.set(cacheKey, null)
+        return null
+      }
+    }
 
     for (const file of relevantFiles) {
       const owners = getOwnersForFile(file, entries)
@@ -149,11 +180,28 @@ export async function run(): Promise<void> {
       }
 
       // At least one required owner must be a participant
-      const satisfied = owners.some((owner) => {
-        // owners can be @user or @org/team — we check user logins directly
-        const login = owner.startsWith('@') ? owner.slice(1) : owner
-        return participants.has(login)
-      })
+      let satisfied = false
+      for (const ownerEntry of owners) {
+        const stripped = ownerEntry.startsWith('@')
+          ? ownerEntry.slice(1)
+          : ownerEntry
+        if (stripped.includes('/')) {
+          // Team entry: org/team-slug — check if any participant is a team member
+          const slashIndex = stripped.indexOf('/')
+          const teamOrg = stripped.slice(0, slashIndex)
+          const teamSlug = stripped.slice(slashIndex + 1)
+          const teamLogins = await getTeamMembers(teamOrg, teamSlug)
+          if (teamLogins && [...participants].some((p) => teamLogins.has(p))) {
+            satisfied = true
+            break
+          }
+        } else {
+          if (participants.has(stripped)) {
+            satisfied = true
+            break
+          }
+        }
+      }
 
       if (!satisfied) {
         failures.push({ file, requiredOwners: owners })

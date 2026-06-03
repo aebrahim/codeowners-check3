@@ -28,6 +28,7 @@ export function buildMockOctokit(overrides?: {
   listReviews?: jest.Mock
   listFiles?: jest.Mock
   getContent?: jest.Mock
+  listMembersInOrg?: jest.Mock
 }): Octokit {
   return {
     rest: {
@@ -43,6 +44,11 @@ export function buildMockOctokit(overrides?: {
         getContent:
           overrides?.getContent ??
           jest.fn<() => Promise<unknown>>().mockResolvedValue({ data: {} })
+      },
+      teams: {
+        listMembersInOrg:
+          overrides?.listMembersInOrg ??
+          jest.fn<() => Promise<unknown>>().mockResolvedValue({ data: [] })
       }
     }
   } as unknown as Octokit
