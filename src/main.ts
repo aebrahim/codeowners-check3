@@ -162,9 +162,11 @@ export async function run(): Promise<void> {
         )
         teamMembersCache.set(cacheKey, logins)
         return logins
-      } catch {
+      } catch (error: unknown) {
         // Team not found or insufficient permissions — treat as not satisfied
-        core.debug(`Could not fetch members for team "${cacheKey}"`)
+        core.error(
+          `Could not fetch members for team "${cacheKey}" with error ${error instanceof Error ? error.message : String(error)}`
+        )
         teamMembersCache.set(cacheKey, null)
         return null
       }
@@ -180,7 +182,9 @@ export async function run(): Promise<void> {
       // At least one required owner must be a participant
       let satisfied = false
       for (const ownerEntry of owners) {
-        const stripped = ownerEntry.startsWith('@') ? ownerEntry.slice(1) : ownerEntry
+        const stripped = ownerEntry.startsWith('@')
+          ? ownerEntry.slice(1)
+          : ownerEntry
         if (stripped.includes('/')) {
           // Team entry: org/team-slug — check if any participant is a team member
           const slashIndex = stripped.indexOf('/')
