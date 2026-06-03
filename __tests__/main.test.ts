@@ -322,4 +322,37 @@ describe('main.ts', () => {
       expect.stringContaining('src/app.ts')
     )
   })
+
+  it('calls listMembersInOrg only once per team across multiple files', async () => {
+    const listMembersInOrg = jest
+      .fn<() => Promise<unknown>>()
+      .mockResolvedValue({ data: [{ login: 'team-member' }] })
+
+    gh.getOctokit.mockReturnValue(
+      gh.buildMockOctokit({
+        listReviews: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: [{ user: { login: 'team-member' }, state: 'APPROVED' }]
+        }),
+        listFiles: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: [
+            { filename: 'src/a.ts' },
+            { filename: 'src/b.ts' },
+            { filename: 'src/c.ts' }
+          ]
+        }),
+        getContent: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: {
+            content: b64('*.ts @myorg/frontend\n'),
+            encoding: 'base64'
+          }
+        }),
+        listMembersInOrg
+      })
+    )
+
+    await run()
+
+    expect(core.setFailed).not.toHaveBeenCalled()
+    expect(listMembersInOrg).toHaveBeenCalledTimes(1)
+  })
 })
