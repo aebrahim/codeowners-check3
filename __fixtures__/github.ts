@@ -30,26 +30,35 @@ export function buildMockOctokit(overrides?: {
   getContent?: jest.Mock
   listMembersInOrg?: jest.Mock
 }): Octokit {
-  return {
-    rest: {
-      pulls: {
-        listReviews:
-          overrides?.listReviews ??
-          jest.fn<() => Promise<unknown>>().mockResolvedValue({ data: [] }),
-        listFiles:
-          overrides?.listFiles ??
-          jest.fn<() => Promise<unknown>>().mockResolvedValue({ data: [] })
-      },
-      repos: {
-        getContent:
-          overrides?.getContent ??
-          jest.fn<() => Promise<unknown>>().mockResolvedValue({ data: {} })
-      },
-      teams: {
-        listMembersInOrg:
-          overrides?.listMembersInOrg ??
-          jest.fn<() => Promise<unknown>>().mockResolvedValue({ data: [] })
-      }
+  const restMocks = {
+    pulls: {
+      listReviews:
+        overrides?.listReviews ??
+        jest.fn<() => Promise<unknown>>().mockResolvedValue({ data: [] }),
+      listFiles:
+        overrides?.listFiles ??
+        jest.fn<() => Promise<unknown>>().mockResolvedValue({ data: [] })
+    },
+    repos: {
+      getContent:
+        overrides?.getContent ??
+        jest.fn<() => Promise<unknown>>().mockResolvedValue({ data: {} })
+    },
+    teams: {
+      listMembersInOrg:
+        overrides?.listMembersInOrg ??
+        jest.fn<() => Promise<unknown>>().mockResolvedValue({ data: [] })
     }
+  }
+  return {
+    rest: restMocks,
+    paginate: jest
+      .fn<(fn: unknown, params: unknown) => Promise<unknown[]>>()
+      .mockImplementation(
+        async (fn: unknown, params: unknown): Promise<unknown[]> => {
+          const result = (await (fn as (p: unknown) => Promise<{ data: unknown[] }>)(params))
+          return result.data
+        }
+      )
   } as unknown as Octokit
 }
