@@ -36040,6 +36040,7 @@ async function run() {
     try {
         const token = getInput('github-token', { required: true });
         const codeownersPath = getInput('codeowners-path') || '.github/CODEOWNERS';
+        const codeownersContents = getInput('codeowners-contents');
         const ignoreFilepaths = splitInput(getInput('ignore-filepaths'));
         const ignoreAuthors = splitInput(getInput('ignore-authors'));
         const alwaysSucceedBeforeApproval = getBooleanInput('always-succeed-before-approval');
@@ -36099,25 +36100,30 @@ async function run() {
             info('All changed files are in ignore-filepaths — skipping check.');
             return;
         }
-        // 4. Read CODEOWNERS from the PR head SHA
+        // 4. Read CODEOWNERS — use provided contents or fetch from the PR head SHA
         let codeownersContent;
-        try {
-            const response = await octokit.rest.repos.getContent({
-                owner,
-                repo,
-                path: codeownersPath,
-                ref: headSha
-            });
-            const data = response.data;
-            if (!data.content) {
-                info('CODEOWNERS file is empty — skipping check.');
+        if (codeownersContents) {
+            codeownersContent = codeownersContents;
+        }
+        else {
+            try {
+                const response = await octokit.rest.repos.getContent({
+                    owner,
+                    repo,
+                    path: codeownersPath,
+                    ref: headSha
+                });
+                const data = response.data;
+                if (!data.content) {
+                    info('CODEOWNERS file is empty — skipping check.');
+                    return;
+                }
+                codeownersContent = Buffer.from(data.content, 'base64').toString('utf8');
+            }
+            catch (error) {
+                setFailed(`Failed to fetch CODEOWNERS file at "${codeownersPath}" with error: ${errorToString(error)}`);
                 return;
             }
-            codeownersContent = Buffer.from(data.content, 'base64').toString('utf8');
-        }
-        catch (error) {
-            setFailed(`Failed to fetch CODEOWNERS file at "${codeownersPath}" with error: ${errorToString(error)}`);
-            return;
         }
         const entries = parseCodeowners(codeownersContent);
         debug(`Parsed ${entries.length} CODEOWNERS entries.`);

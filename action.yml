@@ -15,9 +15,17 @@ inputs:
     required: false
     default: ${{ github.token }}
   codeowners-path:
-    description: Path to the CODEOWNERS file in the repository.
+    description: >-
+      Path to the CODEOWNERS file in the repository. The file is fetched from
+      the PR head SHA.
     required: false
     default: .github/CODEOWNERS
+  codeowners-contents:
+    description: >-
+      Raw CODEOWNERS file contents to use instead of fetching the file from the
+      repository. When provided, codeowners-path is ignored.
+    required: false
+    default: ''
   ignore-filepaths:
     description: >-
       Comma- or newline-separated list of file paths or glob patterns where

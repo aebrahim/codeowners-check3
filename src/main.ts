@@ -44,6 +44,7 @@ export async function run(): Promise<void> {
     const token = core.getInput('github-token', { required: true })
     const codeownersPath =
       core.getInput('codeowners-path') || '.github/CODEOWNERS'
+    const codeownersContents = core.getInput('codeowners-contents')
     const ignoreFilepaths = splitInput(core.getInput('ignore-filepaths'))
     const ignoreAuthors = splitInput(core.getInput('ignore-authors'))
     const alwaysSucceedBeforeApproval = core.getBooleanInput(
@@ -125,26 +126,30 @@ export async function run(): Promise<void> {
       return
     }
 
-    // 4. Read CODEOWNERS from the PR head SHA
+    // 4. Read CODEOWNERS — use provided contents or fetch from the PR head SHA
     let codeownersContent: string
-    try {
-      const response = await octokit.rest.repos.getContent({
-        owner,
-        repo,
-        path: codeownersPath,
-        ref: headSha
-      })
-      const data = response.data as { content?: string; encoding?: string }
-      if (!data.content) {
-        core.info('CODEOWNERS file is empty — skipping check.')
+    if (codeownersContents) {
+      codeownersContent = codeownersContents
+    } else {
+      try {
+        const response = await octokit.rest.repos.getContent({
+          owner,
+          repo,
+          path: codeownersPath,
+          ref: headSha
+        })
+        const data = response.data as { content?: string; encoding?: string }
+        if (!data.content) {
+          core.info('CODEOWNERS file is empty — skipping check.')
+          return
+        }
+        codeownersContent = Buffer.from(data.content, 'base64').toString('utf8')
+      } catch (error: unknown) {
+        core.setFailed(
+          `Failed to fetch CODEOWNERS file at "${codeownersPath}" with error: ${errorToString(error)}`
+        )
         return
       }
-      codeownersContent = Buffer.from(data.content, 'base64').toString('utf8')
-    } catch (error: unknown) {
-      core.setFailed(
-        `Failed to fetch CODEOWNERS file at "${codeownersPath}" with error: ${errorToString(error)}`
-      )
-      return
     }
 
     const entries = parseCodeowners(codeownersContent)
