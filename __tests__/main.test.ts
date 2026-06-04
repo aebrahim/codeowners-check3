@@ -36,6 +36,8 @@ describe('main.ts', () => {
           return 'fake-token'
         case 'codeowners-path':
           return '.github/CODEOWNERS'
+        case 'codeowners-contents':
+          return ''
         case 'ignore-filepaths':
           return ''
         case 'ignore-authors':
@@ -433,6 +435,61 @@ describe('main.ts', () => {
     expect(core.setFailed).not.toHaveBeenCalled()
     expect(core.info).toHaveBeenCalledWith(
       expect.stringContaining('No approvals found')
+    )
+  })
+
+  it('uses codeowners-contents instead of fetching from the API', async () => {
+    core.getInput.mockImplementation((name: string) => {
+      if (name === 'github-token') return 'fake-token'
+      if (name === 'codeowners-contents') return '*.ts @frontend-dev\n'
+      return ''
+    })
+
+    const getContent = jest.fn<() => Promise<unknown>>()
+
+    gh.getOctokit.mockReturnValue(
+      gh.buildMockOctokit({
+        listReviews: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: [{ user: { login: 'frontend-dev' }, state: 'APPROVED' }]
+        }),
+        listFiles: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: [{ filename: 'src/app.ts' }]
+        }),
+        getContent
+      })
+    )
+
+    await run()
+
+    expect(getContent).not.toHaveBeenCalled()
+    expect(core.setFailed).not.toHaveBeenCalled()
+    expect(core.info).toHaveBeenCalledWith(
+      expect.stringContaining('CODEOWNERS check passed')
+    )
+  })
+
+  it('fails via codeowners-contents when no participant satisfies requirements', async () => {
+    core.getInput.mockImplementation((name: string) => {
+      if (name === 'github-token') return 'fake-token'
+      if (name === 'codeowners-contents') return '*.ts @required-owner\n'
+      return ''
+    })
+
+    gh.getOctokit.mockReturnValue(
+      gh.buildMockOctokit({
+        listReviews: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: [{ user: { login: 'other-user' }, state: 'APPROVED' }]
+        }),
+        listFiles: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: [{ filename: 'src/app.ts' }]
+        })
+      })
+    )
+
+    await run()
+
+    expect(core.setFailed).toHaveBeenCalledWith(
+      expect.stringContaining('src/app.ts')
     )
   })
 })
