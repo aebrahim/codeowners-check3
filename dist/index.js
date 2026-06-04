@@ -28132,6 +28132,27 @@ function getInput(name, options) {
     }
     return val.trim();
 }
+/**
+ * Gets the input value of the boolean type in the YAML 1.2 "core schema" specification.
+ * Support boolean input list: `true | True | TRUE | false | False | FALSE` .
+ * The return value is also in boolean type.
+ * ref: https://yaml.org/spec/1.2/spec.html#id2804923
+ *
+ * @param     name     name of the input to get
+ * @param     options  optional. See InputOptions.
+ * @returns   boolean
+ */
+function getBooleanInput(name, options) {
+    const trueValue = ['true', 'True', 'TRUE'];
+    const falseValue = ['false', 'False', 'FALSE'];
+    const val = getInput(name, options);
+    if (trueValue.includes(val))
+        return true;
+    if (falseValue.includes(val))
+        return false;
+    throw new TypeError(`Input does not meet YAML 1.2 "Core Schema" specification: ${name}\n` +
+        `Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
+}
 //-----------------------------------------------------------------------
 // Results
 //-----------------------------------------------------------------------
@@ -36021,6 +36042,7 @@ async function run() {
         const codeownersPath = getInput('codeowners-path') || '.github/CODEOWNERS';
         const ignoreFilepaths = splitInput(getInput('ignore-filepaths'));
         const ignoreAuthors = splitInput(getInput('ignore-authors'));
+        const alwaysSucceedBeforeApproval = getBooleanInput('always-succeed-before-approval');
         const octokit = getOctokit(token);
         const { context } = github;
         if (!context.payload.pull_request) {
@@ -36047,8 +36069,11 @@ async function run() {
             .filter(([, state]) => state === 'APPROVED')
             .map(([login]) => login));
         if (approvers.size === 0) {
-            info('No approvals found — skipping CODEOWNERS check.');
-            return;
+            if (alwaysSucceedBeforeApproval) {
+                info('No approvals found — skipping CODEOWNERS check.');
+                return;
+            }
+            info('No approvals found — continuing CODEOWNERS check.');
         }
         info(`Approvers: ${[...approvers].join(', ')}`);
         // 2. Exit success if the PR author is in ignore-authors

@@ -44,6 +44,14 @@ describe('main.ts', () => {
           return ''
       }
     })
+    core.getBooleanInput.mockImplementation((name: string) => {
+      switch (name) {
+        case 'always-succeed-before-approval':
+          return true
+        default:
+          return false
+      }
+    })
 
     // Default PR context
     gh.context.payload = {
@@ -378,5 +386,53 @@ describe('main.ts', () => {
 
     expect(core.setFailed).not.toHaveBeenCalled()
     expect(listMembersInOrg).toHaveBeenCalledTimes(1)
+  })
+
+  it('fails when always-succeed-before-approval is false and no approvals exist', async () => {
+    core.getBooleanInput.mockImplementation((name: string) => {
+      if (name === 'always-succeed-before-approval') return false
+      return false
+    })
+
+    gh.getOctokit.mockReturnValue(
+      gh.buildMockOctokit({
+        listReviews: jest
+          .fn<() => Promise<unknown>>()
+          .mockResolvedValue({ data: [] }),
+        listFiles: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: [{ filename: 'src/app.ts' }]
+        }),
+        getContent: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+          data: {
+            content: b64(BASE_CODEOWNERS),
+            encoding: 'base64'
+          }
+        })
+      })
+    )
+
+    await run()
+
+    expect(core.setFailed).toHaveBeenCalledWith(
+      expect.stringContaining('src/app.ts')
+    )
+  })
+
+  it('skips check when always-succeed-before-approval is true (default) and no approvals exist', async () => {
+    // default mock already sets always-succeed-before-approval to true
+    gh.getOctokit.mockReturnValue(
+      gh.buildMockOctokit({
+        listReviews: jest
+          .fn<() => Promise<unknown>>()
+          .mockResolvedValue({ data: [] })
+      })
+    )
+
+    await run()
+
+    expect(core.setFailed).not.toHaveBeenCalled()
+    expect(core.info).toHaveBeenCalledWith(
+      expect.stringContaining('No approvals found')
+    )
   })
 })
