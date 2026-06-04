@@ -36074,7 +36074,7 @@ async function run() {
                 info('No approvals found — skipping CODEOWNERS check.');
                 return;
             }
-            info('No approvals found — continuing CODEOWNERS check.');
+            debug('No approvals found but alwaysSucceedBeforeApproval is false — continuing CODEOWNERS check.');
         }
         info(`Approvers: ${[...approvers].join(', ')}`);
         // 2. Exit success if the PR author is in ignore-authors
@@ -36104,6 +36104,7 @@ async function run() {
         let codeownersContent;
         if (codeownersContents) {
             codeownersContent = codeownersContents;
+            info('Using provided CODEOWNERS contents instead of fetching from head.');
         }
         else {
             try {
@@ -36173,12 +36174,16 @@ async function run() {
                     const teamSlug = stripped.slice(slashIndex + 1);
                     const teamLogins = await getTeamMembers(teamOrg, teamSlug);
                     if (teamLogins && [...participants].some((p) => teamLogins.has(p))) {
+                        const member = [...participants].find((p) => teamLogins.has(p)) ??
+                            'unknown member';
+                        debug(`File "${file}" approved by owner ${member} in "${teamOrg}/${teamSlug}".`);
                         satisfied = true;
                         break;
                     }
                 }
                 else {
                     if (participants.has(stripped)) {
+                        debug(`File "${file}" approved by owner "${ownerEntry}".`);
                         satisfied = true;
                         break;
                     }
