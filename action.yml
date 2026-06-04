@@ -34,8 +34,8 @@ inputs:
     description: >-
       When true, the action exits successfully if the PR has no approvals yet,
       even if the CODEOWNERS check would otherwise have failed. This avoids
-      spurious CI failures while a PR is still awaiting its first review.
-      Most workflows already enforce at least one approval via branch protection,
+      spurious CI failures while a PR is still awaiting its first review. Most
+      workflows already enforce at least one approval via branch protection,
       making this safe to leave enabled.
     required: false
     default: 'true'
