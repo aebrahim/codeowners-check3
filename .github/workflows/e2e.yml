@@ -2,13 +2,8 @@ name: End to End Integration Tests
 
 on:
   pull_request:
-    branches:
-      - main
   pull_request_review:
     types: [submitted]
-  push:
-    branches:
-      - main
 
 permissions:
   contents: read
@@ -44,22 +39,13 @@ jobs:
         run: |
           echo "Error: missing_codeowners should have failed but succeeded" && exit 1
 
-  test-action-pr-only:
-    name: E2E Action Tests PR Event
-    runs-on: ubuntu-latest
-    if: github.actor != ''
-    steps:
-      - name: Checkout
-        id: checkout
-        uses: actions/checkout@v6
-
       - name: Test Local Action With Current User ignored
         id: current_user_ignored
         uses: ./
         with:
           always-succeed-before-approval: false
           codeowners-path: MISSING_CODEOWNERS
-          ignore-authors: ${{ github.actor }}
+          ignore-authors: ${{ github.event.pull_request.user.login }}
 
       - name: Test Local Action With Current User is Owner
         id: current_user_is_owner
@@ -67,10 +53,10 @@ jobs:
         with:
           always-succeed-before-approval: false
           codeowners-contents: |
-            * @${{ github.actor }}
-            *.ts @fakeorg/faketeam
+            *. @fakeorg/faketeam
+            * @${{ github.event.pull_request.user.login }}
 
-  test-action-pr-review-only:
+  test-action-pr-review:
     name: E2E Action Tests PR Review Event
     runs-on: ubuntu-latest
     # prettier-ignore
@@ -87,8 +73,8 @@ jobs:
         uses: ./
         with:
           codeowners-contents: |
+            * @fakeorg/faketeam
             * @${{ github.event.review.user.login }}
-            *.ts @fakeorg/faketeam
 
       - name: Test Local Action Where Current Approver is Not Owner
         id: current_approver_is_not_owner

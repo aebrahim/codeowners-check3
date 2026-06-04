@@ -91,7 +91,9 @@ export async function run(): Promise<void> {
         core.info('No approvals found — skipping CODEOWNERS check.')
         return
       }
-      core.info('No approvals found — continuing CODEOWNERS check.')
+      core.debug(
+        'No approvals found but alwaysSucceedBeforeApproval is false — continuing CODEOWNERS check.'
+      )
     }
 
     core.info(`Approvers: ${[...approvers].join(', ')}`)
@@ -130,6 +132,9 @@ export async function run(): Promise<void> {
     let codeownersContent: string
     if (codeownersContents) {
       codeownersContent = codeownersContents
+      core.info(
+        'Using provided CODEOWNERS contents instead of fetching from head.'
+      )
     } else {
       try {
         const response = await octokit.rest.repos.getContent({
@@ -211,11 +216,18 @@ export async function run(): Promise<void> {
           const teamSlug = stripped.slice(slashIndex + 1)
           const teamLogins = await getTeamMembers(teamOrg, teamSlug)
           if (teamLogins && [...participants].some((p) => teamLogins.has(p))) {
+            const member =
+              [...participants].find((p) => teamLogins.has(p)) ??
+              'unknown member'
+            core.debug(
+              `File "${file}" approved by owner ${member} in "${teamOrg}/${teamSlug}".`
+            )
             satisfied = true
             break
           }
         } else {
           if (participants.has(stripped)) {
+            core.debug(`File "${file}" approved by owner "${ownerEntry}".`)
             satisfied = true
             break
           }
