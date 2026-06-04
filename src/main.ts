@@ -46,6 +46,9 @@ export async function run(): Promise<void> {
       core.getInput('codeowners-path') || '.github/CODEOWNERS'
     const ignoreFilepaths = splitInput(core.getInput('ignore-filepaths'))
     const ignoreAuthors = splitInput(core.getInput('ignore-authors'))
+    const alwaysSucceedBeforeApproval = core.getBooleanInput(
+      'always-succeed-before-approval'
+    )
 
     const octokit = github.getOctokit(token)
     const { context } = github
@@ -83,8 +86,11 @@ export async function run(): Promise<void> {
     )
 
     if (approvers.size === 0) {
-      core.info('No approvals found — skipping CODEOWNERS check.')
-      return
+      if (alwaysSucceedBeforeApproval) {
+        core.info('No approvals found — skipping CODEOWNERS check.')
+        return
+      }
+      core.info('No approvals found — continuing CODEOWNERS check.')
     }
 
     core.info(`Approvers: ${[...approvers].join(', ')}`)
